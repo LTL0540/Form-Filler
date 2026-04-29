@@ -1,7 +1,9 @@
 {
   "name": "browser-pdf-form-filler",
-  "version": "0.1.0",
+  "version": "0.5.0",
+  "description": "Browser-only PDF template builder and form filler with local PDF generation.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,0 +1,58 @@
+export type TemplateMatchResult = {
+  kind: 'confirmed' | 'warning';
+  message: string;
+};
+
+export function getMappingFileName(pdfFileName?: string) {
+  if (!pdfFileName) return 'template.mapping.json';
+  return `${stripPdfExtension(pdfFileName)}.mapping.json`;
+}
+
+export function getFlattenedPdfFileName(pdfFileName?: string) {
+  if (!pdfFileName) return 'template.flattened.pdf';
+  return `${stripPdfExtension(pdfFileName)}.flattened.pdf`;
+}
+
+export function getTemplateMatchResult(
+  pdfFileName: string | undefined,
+  templatePdfName: string | undefined,
+  mappingFileName?: string,
+): TemplateMatchResult | null {
+  if (!pdfFileName) return null;
+
+  const pdfBase = normalizeBaseName(stripPdfExtension(pdfFileName));
+  const templatePdfBase = templatePdfName
+    ? normalizeBaseName(stripPdfExtension(templatePdfName))
+    : null;
+  const mappingBase = mappingFileName
+    ? normalizeBaseName(stripMappingExtension(mappingFileName))
+    : null;
+
+  if (templatePdfBase === pdfBase || mappingBase === pdfBase) {
+    return {
+      kind: 'confirmed',
+      message: 'Template match confirmed.',
+    };
+  }
+
+  const expectedName = templatePdfName || mappingFileName || 'the imported template';
+  return {
+    kind: 'warning',
+    message: `Template PDF mismatch: uploaded PDF is ${pdfFileName}, but the template references ${expectedName}. You can continue if this is intentional.`,
+  };
+}
+
+function stripPdfExtension(fileName: string) {
+  return fileName.replace(/\.pdf$/i, '');
+}
+
+function stripMappingExtension(fileName: string) {
+  return fileName
+    .replace(/\.mapping\.json$/i, '')
+    .replace(/\.json$/i, '')
+    .replace(/\.pdf$/i, '');
+}
+
+function normalizeBaseName(value: string) {
+  return value.trim().toLowerCase().replace(/\.(flattened|printed)$/i, '');
+}

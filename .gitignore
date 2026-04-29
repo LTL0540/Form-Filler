@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.vite/
+*.local
+.env
+.env.*
+
+# User-generated local artifacts
+*.pdf
+*.mapping.json
+*.template.json
+*-filled.pdf
+*.flattened.pdf
+
+# Logs and OS/editor noise
+*.log
+.DS_Store
+.idea/
+.vscode/

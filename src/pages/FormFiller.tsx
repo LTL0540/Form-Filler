@@ -74,7 +74,10 @@ export function FormFiller({
     [fields, pageNumber],
   );
   const mappingMatch: TemplateMatchResult | null = useMemo(
-    () => getTemplateMatchResult(pdfFile?.name, mappingPdfName, mappingFileName),
+    () =>
+      mappingFileName && mappingPdfName
+        ? getTemplateMatchResult(pdfFile?.name, mappingPdfName, mappingFileName)
+        : null,
     [mappingFileName, mappingPdfName, pdfFile?.name],
   );
   const hasSessionReadyToFill = !!pdfFile && orderedFields.length > 0;

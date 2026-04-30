@@ -10,6 +10,7 @@ type FieldOverlayProps = {
   scale: number;
   onSelect?: (key: string) => void;
   onChange?: (key: string, patch: Partial<Field>) => void;
+  onDuplicate?: (field: Field) => void;
   onDelete?: (key: string) => void;
 };
 
@@ -21,6 +22,7 @@ function FieldOverlayComponent({
   scale,
   onSelect,
   onChange,
+  onDuplicate,
   onDelete,
 }: FieldOverlayProps) {
   return (
@@ -72,7 +74,7 @@ function FieldOverlayComponent({
                   })
                 }
               >
-                A
+                A−
               </button>
               <button
                 type="button"
@@ -84,7 +86,15 @@ function FieldOverlayComponent({
                   })
                 }
               >
-                A
+                A+
+              </button>
+              <button
+                type="button"
+                className="toolbar-duplicate"
+                aria-label="Duplicate field"
+                onClick={() => onDuplicate?.(field)}
+              >
+                Duplicate
               </button>
               <button
                 type="button"
@@ -92,7 +102,7 @@ function FieldOverlayComponent({
                 aria-label="Delete field"
                 onClick={() => onDelete?.(field.key)}
               >
-                ×
+                Delete
               </button>
             </div>
           )}

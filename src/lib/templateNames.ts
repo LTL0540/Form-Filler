@@ -4,8 +4,8 @@ export type TemplateMatchResult = {
 };
 
 export function getMappingFileName(pdfFileName?: string) {
-  if (!pdfFileName) return 'field-mapping.mapping.json';
-  return `${stripPdfExtension(pdfFileName)}.mapping.json`;
+  if (!pdfFileName) return 'form-MAPPING.json';
+  return `${stripPdfExtension(pdfFileName)}-MAPPING.json`;
 }
 
 export function getFlattenedPdfFileName(pdfFileName?: string) {
@@ -49,6 +49,7 @@ function stripPdfExtension(fileName: string) {
 function stripMappingExtension(fileName: string) {
   return fileName
     .replace(/\.mapping\.json$/i, '')
+    .replace(/-mapping\.json$/i, '')
     .replace(/\.json$/i, '')
     .replace(/\.pdf$/i, '');
 }

@@ -18,6 +18,7 @@ import {
 import type { Field } from '../types/field';
 
 const RENDER_SCALE = 1.3;
+const ZOOM_LEVELS = [50, 75, 100, 125, 150, 175, 200];
 
 type TemplateBuilderProps = {
   pdfFile: File | null;
@@ -32,7 +33,6 @@ type TemplateBuilderProps = {
   onMappingPdfNameChange: (name: string | undefined) => void;
   onMappingFileNameChange: (name: string | undefined) => void;
   onFieldsChange: (fields: Field[]) => void;
-  onLayoutDirty: () => void;
   onLayoutSaved: () => void;
 };
 
@@ -49,7 +49,6 @@ export function TemplateBuilder({
   onMappingPdfNameChange,
   onMappingFileNameChange,
   onFieldsChange,
-  onLayoutDirty,
   onLayoutSaved,
 }: TemplateBuilderProps) {
   const [pdfDocument, setPdfDocument] = useState<PdfDocument | null>(null);
@@ -57,6 +56,7 @@ export function TemplateBuilder({
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [isFlattening, setIsFlattening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +66,10 @@ export function TemplateBuilder({
   );
   const activeField = fields.find((field) => field.key === activeKey) ?? null;
   const mappingMatch: TemplateMatchResult | null = useMemo(
-    () => getTemplateMatchResult(pdfFile?.name, mappingPdfName, mappingFileName),
+    () =>
+      mappingFileName && mappingPdfName
+        ? getTemplateMatchResult(pdfFile?.name, mappingPdfName, mappingFileName)
+        : null,
     [mappingFileName, mappingPdfName, pdfFile?.name],
   );
   const hasInvalidKeys = fields.some(
@@ -74,6 +77,7 @@ export function TemplateBuilder({
       !field.key || fields.findIndex((candidate) => candidate.key === field.key) !== index,
   );
   const canExport = !!pdfFile && fields.length > 0 && !hasInvalidKeys;
+  const previewScale = RENDER_SCALE * (zoomPercent / 100);
 
   useEffect(() => {
     let isCancelled = false;
@@ -126,7 +130,7 @@ export function TemplateBuilder({
   }
 
   function addField() {
-    const nextIndex = fields.length + 1;
+    const nextIndex = getNextOrder(fields);
     const key = makeUniqueKey(`field_${nextIndex}`, fields);
     const field: Field = {
       key,
@@ -144,6 +148,26 @@ export function TemplateBuilder({
 
     onFieldsChange([...fields, field]);
     setActiveKey(field.key);
+  }
+
+  function duplicateField(sourceField: Field) {
+    const nextOrder = getNextOrder(fields);
+    const key = makeUniqueKey(`field_${nextOrder}`, fields);
+    const offset = 12;
+    const pageWidth = pageSize.width ? pageSize.width / previewScale : Number.POSITIVE_INFINITY;
+    const pageHeight = pageSize.height ? pageSize.height / previewScale : Number.POSITIVE_INFINITY;
+    const clonedField: Field = {
+      ...sourceField,
+      key,
+      label: `Field ${nextOrder}`,
+      x: round(Math.min(sourceField.x + offset, Math.max(0, pageWidth - sourceField.width))),
+      y: round(Math.min(sourceField.y + offset, Math.max(0, pageHeight - sourceField.height))),
+      order: nextOrder,
+    };
+
+    onFieldsChange([...fields, clonedField]);
+    setPageNumber(clonedField.page);
+    setActiveKey(clonedField.key);
   }
 
   const updateField = useCallback((key: string, patch: Partial<Field>) => {
@@ -226,7 +250,7 @@ export function TemplateBuilder({
         <div className="upload-control">
           <FilePicker
             id="builder-pdf"
-            label="PDF"
+            label="Upload PDF to be Mapped"
             accept=".pdf,application/pdf"
             fileName={pdfFile?.name}
             onChange={handlePdfUpload}
@@ -240,6 +264,19 @@ export function TemplateBuilder({
           fileName={mappingFileName}
           onChange={importMapping}
         />
+        <div className="toolbar-save-actions">
+          <button type="button" className="primary-action" onClick={exportMapping} disabled={!canExport}>
+            Save Form Mapping
+          </button>
+          <button
+            type="button"
+            className="secondary-action"
+            onClick={exportFlattenedPdf}
+            disabled={!pdfFile || isFlattening}
+          >
+            {isFlattening ? 'Saving Cleaned PDF' : 'Save Cleaned PDF (optional)'}
+          </button>
+        </div>
       </section>
 
       {error && <p className="error-text">{error}</p>}
@@ -255,22 +292,6 @@ export function TemplateBuilder({
       <section className="workspace builder-workspace">
         <aside className="side-panel">
           <h2>Form Mapping</h2>
-          <div className="setup-actions">
-            <label>
-              Mapping Name
-              <input
-                value={mappingName}
-                onChange={(event) => {
-                  onMappingNameChange(event.currentTarget.value);
-                  onLayoutDirty();
-                }}
-              />
-            </label>
-            <button type="button" className="primary-action" onClick={exportMapping} disabled={!canExport}>
-              Save Form Mapping
-            </button>
-            <p>The Mapping Name is saved with the mapping file. Most forms only need Save Form Mapping; use the same PDF with the saved mapping file.</p>
-          </div>
           <button type="button" className="add-field-action" onClick={addField} disabled={!pdfDocument}>
             Add Field
           </button>
@@ -279,8 +300,9 @@ export function TemplateBuilder({
             onChange={(patch) => activeField && updateField(activeField.key, patch)}
             onDelete={deleteActiveField}
           />
+          <hr className="panel-separator" />
           <div className="field-list">
-            <h3>Fields</h3>
+            <h3>Jump to Field</h3>
             {fields.length === 0 ? (
               <p className="empty-state">No fields yet.</p>
             ) : (
@@ -311,29 +333,44 @@ export function TemplateBuilder({
               />
               Show Grid
             </label>
-            <div className="optional-action">
-              <button
-                type="button"
-                className="secondary-action"
-                onClick={exportFlattenedPdf}
-                disabled={!pdfFile || isFlattening}
-              >
-                {isFlattening ? 'Saving Cleaned PDF' : 'Save Cleaned PDF (optional)'}
-              </button>
-              <p>
-                Use this if the original PDF has fillable fields or formatting issues.
-                Creates a clean version that works reliably with your mapping.
-              </p>
-            </div>
           </section>
         </aside>
 
         <div className="pdf-pane">
-          <PageControls
-            pageNumber={pageNumber}
-            pageCount={pdfDocument?.numPages ?? 0}
-            onPageChange={setPageNumber}
-          />
+          <div className="pdf-pane-header">
+            <PageControls
+              pageNumber={pageNumber}
+              pageCount={pdfDocument?.numPages ?? 0}
+              onPageChange={setPageNumber}
+            />
+            <div className="zoom-controls" aria-label="PDF zoom controls">
+              <button
+                type="button"
+                onClick={() => setZoomPercent((current) => Math.max(50, current - 25))}
+                disabled={zoomPercent <= 50}
+              >
+                −
+              </button>
+              <select
+                value={zoomPercent}
+                onChange={(event) => setZoomPercent(Number(event.currentTarget.value))}
+                aria-label="Current zoom"
+              >
+                {ZOOM_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {level}%
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setZoomPercent((current) => Math.min(200, current + 25))}
+                disabled={zoomPercent >= 200}
+              >
+                +
+              </button>
+            </div>
+          </div>
           {pdfDocument ? (
             <div
               className="pdf-stage"
@@ -342,16 +379,17 @@ export function TemplateBuilder({
               <PdfPageCanvas
                 pdfDocument={pdfDocument}
                 pageNumber={pageNumber}
-                scale={RENDER_SCALE}
+                scale={previewScale}
                 onPageSize={setPageSize}
               />
               <FieldOverlay
                 fields={fieldsForPage}
                 activeKey={activeKey}
                 fieldValues={values}
-                scale={RENDER_SCALE}
+                scale={previewScale}
                 onSelect={setActiveKey}
                 onChange={updateField}
+                onDuplicate={duplicateField}
                 onDelete={deleteField}
               />
               {showDebug && (
@@ -359,7 +397,7 @@ export function TemplateBuilder({
                   activeField={activeField}
                   pageHeight={pageSize.height}
                   pageWidth={pageSize.width}
-                  scale={RENDER_SCALE}
+                  scale={previewScale}
                 />
               )}
             </div>
@@ -393,6 +431,18 @@ function makeUniqueKey(baseKey: string, fields: Field[]) {
   let suffix = 2;
   while (existingKeys.has(`${baseKey}_${suffix}`)) suffix += 1;
   return `${baseKey}_${suffix}`;
+}
+
+function getNextOrder(fields: Field[]) {
+  const highestOrder = fields.reduce(
+    (highest, field, index) => Math.max(highest, field.order ?? index + 1),
+    0,
+  );
+  return highestOrder + 1;
+}
+
+function round(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 function isDeleteKey(event: KeyboardEvent) {

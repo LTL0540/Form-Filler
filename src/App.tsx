@@ -96,7 +96,6 @@ export default function App() {
           onMappingPdfNameChange={setMappingPdfName}
           onMappingFileNameChange={setMappingFileName}
           onFieldsChange={updateFields}
-          onLayoutDirty={() => setHasUnsavedLayoutChanges(true)}
           onLayoutSaved={() => setHasUnsavedLayoutChanges(false)}
         />
       ) : (

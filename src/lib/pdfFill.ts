@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { DEFAULT_FONT_SIZE, DEFAULT_LINE_HEIGHT } from './mapping';
 import { loadPdfDocument } from './pdfJs';
 import type { Field } from '../types/field';
 
@@ -20,8 +21,8 @@ export async function fillPdf(
   const pageCount = outputDocument.getPageCount();
 
   for (const field of fields) {
-    const value = values[field.key]?.trim();
-    if (!value) continue;
+    const value = values[field.key] ?? '';
+    if (!value.trim()) continue;
 
     if (field.page < 1 || field.page > pageCount) {
       throw new Error(
@@ -43,16 +44,16 @@ export async function fillPdf(
     */
     const pdfX = field.x;
     const pdfY = pageHeight - field.y - field.height;
-    const fontSize = Math.max(8, Math.min(14, field.height * 0.55));
+    const fontSize = field.fontSize ?? DEFAULT_FONT_SIZE;
+    const lineHeight = fontSize * (field.lineHeight ?? DEFAULT_LINE_HEIGHT);
 
     page.drawText(value, {
       x: pdfX + 2,
-      y: pdfY + Math.max(2, (field.height - fontSize) / 2),
+      y: pdfY + field.height - fontSize - 2,
       size: fontSize,
       font,
       color: rgb(0, 0, 0),
-      maxWidth: Math.max(1, field.width - 4),
-      lineHeight: fontSize * 1.15,
+      lineHeight,
     });
   }
 

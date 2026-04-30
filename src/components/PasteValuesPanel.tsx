@@ -18,7 +18,7 @@ export function PasteValuesPanel({
   return (
     <div className="paste-panel">
       <label>
-        Paste values in order
+        Paste Values
         <textarea
           value={value}
           rows={7}
@@ -29,7 +29,7 @@ export function PasteValuesPanel({
       {warning && <p className="warning-text">{warning}</p>}
       <div className="inline-actions">
         <button type="button" onClick={onApply} disabled={disabled}>
-          Apply Pasted Lines
+          Apply Lines
         </button>
         <button type="button" onClick={onClear}>
           Clear Values

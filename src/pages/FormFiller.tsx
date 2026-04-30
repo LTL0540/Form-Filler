@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { FieldOverlay } from '../components/FieldOverlay';
 import { FilePicker } from '../components/FilePicker';
 import { LocalProcessingNotice } from '../components/LocalProcessingNotice';
+import { PageControls } from '../components/PageControls';
 import { PasteValuesPanel } from '../components/PasteValuesPanel';
+import { PdfPageCanvas } from '../components/PdfPageCanvas';
 import { downloadBlob } from '../lib/download';
 import { fillPdf } from '../lib/pdfFill';
+import { loadPdfDocument, type PdfDocument } from '../lib/pdfJs';
 import {
   getLineCount,
   getLineWarning,
@@ -13,93 +17,135 @@ import {
 } from '../lib/mapping';
 import { getTemplateMatchResult, type TemplateMatchResult } from '../lib/templateNames';
 import type { Field } from '../types/field';
-import type { TemplatePackage } from '../types/template';
+
+const PREVIEW_SCALE = 1.15;
 
 type FormFillerProps = {
-  initialTemplate: TemplatePackage | null;
+  pdfFile: File | null;
+  mappingName: string;
+  mappingPdfName: string | undefined;
+  mappingFileName: string | undefined;
+  fields: Field[];
+  values: Record<string, string>;
+  pasteText: string;
+  pasteWarning: string | null;
+  layoutStatus: 'saved' | 'unsaved';
+  onPdfFileChange: (file: File | null) => void;
+  onMappingNameChange: (name: string) => void;
+  onMappingPdfNameChange: (name: string | undefined) => void;
+  onMappingFileNameChange: (name: string | undefined) => void;
+  onFieldsChange: (fields: Field[]) => void;
+  onValuesChange: (values: Record<string, string>) => void;
+  onPasteTextChange: (text: string) => void;
+  onPasteWarningChange: (warning: string | null) => void;
+  onLayoutSaved: () => void;
 };
 
-export function FormFiller({ initialTemplate }: FormFillerProps) {
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [mappingFileName, setMappingFileName] = useState<string | undefined>();
-  const [templateName, setTemplateName] = useState<string | null>(null);
-  const [templatePdfName, setTemplatePdfName] = useState<string | undefined>();
-  const [templateMatch, setTemplateMatch] = useState<TemplateMatchResult | null>(null);
-  const [fields, setFields] = useState<Field[]>([]);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [pasteText, setPasteText] = useState('');
-  const [pasteWarning, setPasteWarning] = useState<string | null>(null);
+export function FormFiller({
+  pdfFile,
+  mappingName,
+  mappingPdfName,
+  mappingFileName,
+  fields,
+  values,
+  pasteText,
+  pasteWarning,
+  layoutStatus,
+  onPdfFileChange,
+  onMappingNameChange,
+  onMappingPdfNameChange,
+  onMappingFileNameChange,
+  onFieldsChange,
+  onValuesChange,
+  onPasteTextChange,
+  onPasteWarningChange,
+  onLayoutSaved,
+}: FormFillerProps) {
+  const [pdfDocument, setPdfDocument] = useState<PdfDocument | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const orderedFields = useMemo(() => sortFields(fields), [fields]);
   const canGenerate = !!pdfFile && orderedFields.length > 0 && !isGenerating;
+  const fieldsForPage = useMemo(
+    () => fields.filter((field) => field.page === pageNumber),
+    [fields, pageNumber],
+  );
+  const mappingMatch: TemplateMatchResult | null = useMemo(
+    () => getTemplateMatchResult(pdfFile?.name, mappingPdfName, mappingFileName),
+    [mappingFileName, mappingPdfName, pdfFile?.name],
+  );
+  const hasSessionReadyToFill = !!pdfFile && orderedFields.length > 0;
 
   useEffect(() => {
-    if (!initialTemplate) return;
+    let isCancelled = false;
 
-    setPdfFile(initialTemplate.pdfFile);
-    setMappingFileName(initialTemplate.mappingFileName);
-    setTemplateName(initialTemplate.mapping.templateName);
-    setTemplatePdfName(initialTemplate.mapping.templatePdfName);
-    setTemplateMatch(
-      getTemplateMatchResult(
-        initialTemplate.pdfFile.name,
-        initialTemplate.mapping.templatePdfName,
-        initialTemplate.mappingFileName,
-      ),
-    );
-    setFields(initialTemplate.mapping.fields);
-    setValues({});
-    setPasteText('');
-    setPasteWarning(null);
-    setError(null);
-  }, [initialTemplate]);
+    async function loadPdf() {
+      if (!pdfFile) {
+        setPdfDocument(null);
+        return;
+      }
+
+      setError(null);
+      try {
+        const document = await loadPdfDocument(pdfFile);
+        if (!isCancelled) setPdfDocument(document);
+      } catch {
+        if (!isCancelled) {
+          setError('Could not load that PDF.');
+          setPdfDocument(null);
+        }
+      }
+    }
+
+    loadPdf();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [pdfFile]);
 
   function handlePdfUpload(file: File) {
-    setPdfFile(file);
-    setTemplateMatch(
-      getTemplateMatchResult(file.name, templatePdfName, mappingFileName),
-    );
+    setError(null);
+    onPdfFileChange(file);
   }
 
   async function handleMappingUpload(file: File) {
     setError(null);
-    setMappingFileName(file.name);
-    setTemplateName(null);
-    setTemplatePdfName(undefined);
-    setTemplateMatch(null);
-    setValues({});
-    setPasteText('');
-    setPasteWarning(null);
+    onMappingFileNameChange(file.name);
+    onMappingNameChange('Untitled Form Mapping');
+    onMappingPdfNameChange(undefined);
+    onValuesChange({});
+    onPasteTextChange('');
+    onPasteWarningChange(null);
 
     try {
       const mapping = await readMappingFile(file);
-      setTemplateName(mapping.templateName);
-      setTemplatePdfName(mapping.templatePdfName);
-      setTemplateMatch(
-        getTemplateMatchResult(pdfFile?.name, mapping.templatePdfName, file.name),
-      );
-      setFields(mapping.fields);
+      onMappingNameChange(mapping.templateName);
+      onMappingPdfNameChange(mapping.templatePdfName);
+      onFieldsChange(mapping.fields);
+      onLayoutSaved();
     } catch (caught) {
-      setFields([]);
-      setError(caught instanceof Error ? caught.message : 'Could not read mapping JSON.');
+      onFieldsChange([]);
+      setError(caught instanceof Error ? caught.message : 'Could not read Mapping File.');
     }
   }
 
   function applyPastedLines() {
     const lineCount = getLineCount(pasteText);
-    setValues((current) => ({
-      ...current,
+    onValuesChange({
+      ...values,
       ...mapLinesToFieldValues(orderedFields, pasteText),
-    }));
-    setPasteWarning(getLineWarning(lineCount, orderedFields.length));
+    });
+    onPasteWarningChange(getLineWarning(lineCount, orderedFields.length));
   }
 
   function clearValues() {
-    setValues({});
-    setPasteText('');
-    setPasteWarning(null);
+    onValuesChange({});
+    onPasteTextChange('');
+    onPasteWarningChange(null);
   }
 
   async function generateFilledPdf() {
@@ -109,13 +155,7 @@ export function FormFiller({ initialTemplate }: FormFillerProps) {
     setError(null);
 
     try {
-      const pastedValues = pasteText
-        ? mapLinesToFieldValues(orderedFields, pasteText)
-        : {};
-      const bytes = await fillPdf(pdfFile, orderedFields, {
-        ...pastedValues,
-        ...values,
-      });
+      const bytes = await fillPdf(pdfFile, orderedFields, values);
       downloadBlob(
         new Blob([toArrayBuffer(bytes)], { type: 'application/pdf' }),
         makeFilledFileName(pdfFile.name),
@@ -128,40 +168,22 @@ export function FormFiller({ initialTemplate }: FormFillerProps) {
     }
   }
 
-  function clearSession() {
-    if (
-      !window.confirm(
-        'Clear the current PDF, template, pasted text, and entered values from this browser session?',
-      )
-    ) {
-      return;
-    }
-
-    setPdfFile(null);
-    setMappingFileName(undefined);
-    setTemplateName(null);
-    setTemplatePdfName(undefined);
-    setTemplateMatch(null);
-    setFields([]);
-    setValues({});
-    setPasteText('');
-    setPasteWarning(null);
-    setError(null);
-  }
-
   return (
     <main className="page-shell">
       <section className="toolbar">
-        <FilePicker
-          id="filler-pdf"
-          label="PDF"
-          accept=".pdf,application/pdf"
-          fileName={pdfFile?.name}
-          onChange={handlePdfUpload}
-        />
+        <div className="upload-control">
+          <FilePicker
+            id="filler-pdf"
+            label="PDF"
+            accept=".pdf,application/pdf"
+            fileName={pdfFile?.name}
+            onChange={handlePdfUpload}
+          />
+          <p className="upload-note">Upload PDF only. Word documents should be saved as PDF before use.</p>
+        </div>
         <FilePicker
           id="mapping-json"
-          label="Import Template JSON"
+          label="Load Mapping File"
           accept=".json,application/json"
           fileName={mappingFileName}
           onChange={handleMappingUpload}
@@ -169,71 +191,99 @@ export function FormFiller({ initialTemplate }: FormFillerProps) {
       </section>
 
       {error && <p className="error-text">{error}</p>}
-      {templateName && <p className="template-status">Template: {templateName}</p>}
-      {templateMatch && (
-        <p className={templateMatch.kind === 'confirmed' ? 'success-text' : 'warning-text'}>
-          {templateMatch.message}
+      {mappingName && <p className="template-status">{mappingName}</p>}
+      <p className={layoutStatus === 'unsaved' ? 'warning-text' : 'success-text'}>
+        Form Mapping: {layoutStatus === 'unsaved' ? 'Unsaved changes' : 'Saved'}
+      </p>
+      {mappingMatch && (
+        <p className={mappingMatch.kind === 'confirmed' ? 'success-text' : 'warning-text'}>
+          {mappingMatch.message}
         </p>
       )}
 
       <LocalProcessingNotice />
 
-      <section className="form-shell">
-        {orderedFields.length === 0 ? (
-          <div className="drop-placeholder">Upload a mapping JSON to generate form fields.</div>
-        ) : (
-          <form
-            className="generated-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              generateFilledPdf();
-            }}
-          >
-            <PasteValuesPanel
-              value={pasteText}
-              warning={pasteWarning}
-              disabled={orderedFields.length === 0}
-              onChange={(value) => {
-                setPasteText(value);
-                setPasteWarning(getLineWarning(getLineCount(value), orderedFields.length));
+      <section className="filler-workspace">
+        <div className="form-shell">
+          {!hasSessionReadyToFill ? (
+            <div className="drop-placeholder">
+              Load a PDF and Mapping File, or create a form mapping in Form Setup first.
+            </div>
+          ) : (
+            <form
+              className="generated-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                generateFilledPdf();
               }}
-              onApply={applyPastedLines}
-              onClear={clearValues}
-            />
-            <div className="form-grid">
-              {orderedFields.map((field) => (
-                <label key={`${field.page}-${field.key}`}>
-                  {field.label}
-                  <input
-                    value={values[field.key] ?? ''}
-                    autoComplete="off"
-                    onChange={(event) =>
-                      setValues((current) => ({
-                        ...current,
-                        [field.key]: event.currentTarget.value,
-                      }))
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-            <div className="form-actions">
-              <button type="submit" disabled={!canGenerate}>
-                {isGenerating ? 'Generating' : 'Generate Filled PDF'}
-              </button>
-            </div>
-          </form>
-        )}
-      </section>
-
-      <section className="session-panel">
-        <div>
-          <h2>Session</h2>
-          <p>Clears uploaded files and entered values from memory.</p>
+            >
+              <PasteValuesPanel
+                value={pasteText}
+                warning={pasteWarning}
+                disabled={orderedFields.length === 0}
+                onChange={(value) => {
+                  onPasteTextChange(value);
+                  onPasteWarningChange(getLineWarning(getLineCount(value), orderedFields.length));
+                }}
+                onApply={applyPastedLines}
+                onClear={clearValues}
+              />
+              <div className="form-grid">
+                {orderedFields.map((field) => (
+                  <label key={`${field.page}-${field.key}`}>
+                    {field.label}
+                    <input
+                      className="value-input"
+                      value={values[field.key] ?? ''}
+                      autoComplete="off"
+                      onChange={(event) =>
+                        onValuesChange({
+                          ...values,
+                          [field.key]: event.currentTarget.value,
+                        })
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="form-actions">
+                <button type="submit" disabled={!canGenerate}>
+                  {isGenerating ? 'Generating' : 'Print Completed Form'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
-        <button type="button" className="danger" onClick={clearSession}>
-          Clear Session
-        </button>
+
+        <div className="pdf-pane filler-preview">
+          <PageControls
+            pageNumber={pageNumber}
+            pageCount={pdfDocument?.numPages ?? 0}
+            onPageChange={setPageNumber}
+          />
+          {pdfDocument ? (
+            <div
+              className="pdf-stage"
+              style={{ width: pageSize.width, minHeight: pageSize.height }}
+            >
+              <PdfPageCanvas
+                pdfDocument={pdfDocument}
+                pageNumber={pageNumber}
+                scale={PREVIEW_SCALE}
+                onPageSize={setPageSize}
+              />
+              <FieldOverlay
+                fields={fieldsForPage}
+                activeKey={null}
+                fieldValues={values}
+                locked
+                scale={PREVIEW_SCALE}
+              />
+            </div>
+          ) : (
+            <div className="drop-placeholder">Upload a PDF to preview the completed form.</div>
+          )}
+        </div>
       </section>
     </main>
   );

@@ -40,8 +40,8 @@ export function CoordinateDebugOverlay({
         <strong>Preview scale {scale}</strong>
         {activeField ? (
           <span>
-            {activeField.key}: p{activeField.page}, x {activeField.x}, y {activeField.y}, w{' '}
-            {activeField.width}, h {activeField.height}
+            {activeField.key}: page {activeField.page}, x {activeField.x}, y {activeField.y},
+            w {activeField.width}, h {activeField.height}, scale {scale}
           </span>
         ) : (
           <span>Select a field to inspect coordinates.</span>

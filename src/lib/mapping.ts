@@ -1,5 +1,8 @@
 import type { Field, MappingFile } from '../types/field';
 
+export const DEFAULT_FONT_SIZE = 12;
+export const DEFAULT_LINE_HEIGHT = 1.15;
+
 export function sortFields(fields: Field[]) {
   return fields
     .map((field, index) => ({ field, index }))
@@ -17,6 +20,8 @@ export function normalizeFieldOrders(fields: Field[]) {
     ...field,
     type: field.type ?? 'text',
     order: field.order ?? index + 1,
+    fontSize: field.fontSize ?? DEFAULT_FONT_SIZE,
+    lineHeight: field.lineHeight ?? DEFAULT_LINE_HEIGHT,
   }));
 }
 
@@ -29,7 +34,7 @@ export function createMapping(
 
   return {
     version: 1,
-    templateName: templateName.trim() || 'Untitled Template',
+    templateName: templateName.trim() || 'Untitled Form Mapping',
     templatePdfName,
     fields: orderedFields.map((field) => ({
       key: field.key,
@@ -41,6 +46,8 @@ export function createMapping(
       width: field.width,
       height: field.height,
       order: field.order,
+      fontSize: field.fontSize,
+      lineHeight: field.lineHeight,
     })),
   };
 }
@@ -48,11 +55,11 @@ export function createMapping(
 export async function readMappingFile(file: File): Promise<MappingFile> {
   const raw = JSON.parse(await file.text()) as Partial<MappingFile> | Field[];
   const mapping = Array.isArray(raw)
-    ? { version: 1 as const, templateName: 'Imported Template', fields: raw }
+    ? { version: 1 as const, templateName: 'Imported Form Mapping', fields: raw }
     : raw;
 
   if (mapping.version !== 1 || !Array.isArray(mapping.fields)) {
-    throw new Error('Mapping JSON must include version: 1 and a fields array.');
+    throw new Error('Mapping File must include version: 1 and a fields array.');
   }
 
   const normalizedFields = normalizeFieldOrders(mapping.fields as Field[]);
@@ -70,10 +77,12 @@ export async function readMappingFile(file: File): Promise<MappingFile> {
       !Number.isFinite(field.y) ||
       !Number.isFinite(field.width) ||
       !Number.isFinite(field.height) ||
-      !Number.isFinite(field.order)
+      !Number.isFinite(field.order) ||
+      !Number.isFinite(field.fontSize) ||
+      !Number.isFinite(field.lineHeight)
     ) {
       throw new Error(
-        'Every field must include numeric page, x, y, width, height, and order values.',
+        'Every field must include numeric page, x, y, width, height, order, fontSize, and lineHeight values.',
       );
     }
     keys.add(field.key);
@@ -81,7 +90,7 @@ export async function readMappingFile(file: File): Promise<MappingFile> {
 
   return {
     version: 1,
-    templateName: mapping.templateName?.trim() || 'Imported Template',
+    templateName: mapping.templateName?.trim() || 'Imported Form Mapping',
     templatePdfName: mapping.templatePdfName,
     fields: sortFields(normalizedFields),
   };

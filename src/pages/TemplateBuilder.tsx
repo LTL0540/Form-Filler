@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CoordinateDebugOverlay } from '../components/CoordinateDebugOverlay';
 import { FieldEditor } from '../components/FieldEditor';
 import { FieldOverlay } from '../components/FieldOverlay';
@@ -16,26 +16,47 @@ import {
   type TemplateMatchResult,
 } from '../lib/templateNames';
 import type { Field } from '../types/field';
-import type { TemplatePackage } from '../types/template';
 
 const RENDER_SCALE = 1.3;
 
 type TemplateBuilderProps = {
-  onUseTemplate: (templatePackage: TemplatePackage) => void;
+  pdfFile: File | null;
+  mappingName: string;
+  mappingPdfName: string | undefined;
+  mappingFileName: string | undefined;
+  fields: Field[];
+  values: Record<string, string>;
+  layoutStatus: 'saved' | 'unsaved';
+  onPdfFileChange: (file: File | null) => void;
+  onMappingNameChange: (name: string) => void;
+  onMappingPdfNameChange: (name: string | undefined) => void;
+  onMappingFileNameChange: (name: string | undefined) => void;
+  onFieldsChange: (fields: Field[]) => void;
+  onLayoutDirty: () => void;
+  onLayoutSaved: () => void;
 };
 
-export function TemplateBuilder({ onUseTemplate }: TemplateBuilderProps) {
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+export function TemplateBuilder({
+  pdfFile,
+  mappingName,
+  mappingPdfName,
+  mappingFileName,
+  fields,
+  values,
+  layoutStatus,
+  onPdfFileChange,
+  onMappingNameChange,
+  onMappingPdfNameChange,
+  onMappingFileNameChange,
+  onFieldsChange,
+  onLayoutDirty,
+  onLayoutSaved,
+}: TemplateBuilderProps) {
   const [pdfDocument, setPdfDocument] = useState<PdfDocument | null>(null);
-  const [templateName, setTemplateName] = useState('Untitled Template');
-  const [templatePdfName, setTemplatePdfName] = useState<string | undefined>();
-  const [mappingFileName, setMappingFileName] = useState<string | undefined>();
-  const [templateMatch, setTemplateMatch] = useState<TemplateMatchResult | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
-  const [fields, setFields] = useState<Field[]>([]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(true);
+  const [showDebug, setShowDebug] = useState(false);
   const [isFlattening, setIsFlattening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,29 +65,64 @@ export function TemplateBuilder({ onUseTemplate }: TemplateBuilderProps) {
     [fields, pageNumber],
   );
   const activeField = fields.find((field) => field.key === activeKey) ?? null;
+  const mappingMatch: TemplateMatchResult | null = useMemo(
+    () => getTemplateMatchResult(pdfFile?.name, mappingPdfName, mappingFileName),
+    [mappingFileName, mappingPdfName, pdfFile?.name],
+  );
   const hasInvalidKeys = fields.some(
     (field, index) =>
       !field.key || fields.findIndex((candidate) => candidate.key === field.key) !== index,
   );
   const canExport = !!pdfFile && fields.length > 0 && !hasInvalidKeys;
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadPdf() {
+      if (!pdfFile) {
+        setPdfDocument(null);
+        return;
+      }
+
+      setError(null);
+      try {
+        const document = await loadPdfDocument(pdfFile);
+        if (!isCancelled) setPdfDocument(document);
+      } catch {
+        if (!isCancelled) {
+          setError('Could not load that PDF.');
+          setPdfDocument(null);
+        }
+      }
+    }
+
+    loadPdf();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [pdfFile]);
+
+  useEffect(() => {
+    function deleteSelectedField(event: KeyboardEvent) {
+      if (!activeKey || !isDeleteKey(event) || isTypingTarget(event.target)) return;
+
+      event.preventDefault();
+      onFieldsChange(fields.filter((field) => field.key !== activeKey));
+      setActiveKey(null);
+    }
+
+    window.addEventListener('keydown', deleteSelectedField);
+    return () => window.removeEventListener('keydown', deleteSelectedField);
+  }, [activeKey, fields, onFieldsChange]);
+
   async function handlePdfUpload(file: File) {
     setError(null);
-    setPdfFile(file);
-    setTemplateMatch(
-      getTemplateMatchResult(file.name, templatePdfName, mappingFileName),
-    );
+    onPdfFileChange(file);
     if (fields.length === 0) {
-      setTemplateName(file.name.replace(/\.pdf$/i, '') || 'Untitled Template');
+      onMappingNameChange(file.name.replace(/\.pdf$/i, '') || 'Untitled Form Mapping');
     }
     setPageNumber(1);
-
-    try {
-      setPdfDocument(await loadPdfDocument(file));
-    } catch {
-      setError('Could not load that PDF.');
-      setPdfDocument(null);
-    }
   }
 
   function addField() {
@@ -82,9 +138,11 @@ export function TemplateBuilder({ onUseTemplate }: TemplateBuilderProps) {
       width: Math.round(180 / RENDER_SCALE),
       height: Math.round(32 / RENDER_SCALE),
       order: nextIndex,
+      fontSize: 12,
+      lineHeight: 1.15,
     };
 
-    setFields((current) => [...current, field]);
+    onFieldsChange([...fields, field]);
     setActiveKey(field.key);
   }
 
@@ -101,23 +159,29 @@ export function TemplateBuilder({ onUseTemplate }: TemplateBuilderProps) {
       }
     }
 
-    setFields((current) =>
-      current.map((field) => (field.key === key ? { ...field, ...patch } : field)),
+    onFieldsChange(
+      fields.map((field) => (field.key === key ? { ...field, ...patch } : field)),
     );
     if (patch.key) setActiveKey(patch.key);
-  }, [fields]);
+  }, [fields, onFieldsChange]);
 
   function deleteActiveField() {
     if (!activeField) return;
-    setFields((current) => current.filter((field) => field.key !== activeField.key));
+    onFieldsChange(fields.filter((field) => field.key !== activeField.key));
     setActiveKey(null);
+  }
+
+  function deleteField(key: string) {
+    onFieldsChange(fields.filter((field) => field.key !== key));
+    if (activeKey === key) setActiveKey(null);
   }
 
   function exportMapping() {
     downloadJson(
-      createMapping(templateName, pdfFile?.name, fields),
+      createMapping(mappingName, pdfFile?.name, fields),
       getMappingFileName(pdfFile?.name),
     );
+    onLayoutSaved();
   }
 
   async function exportFlattenedPdf() {
@@ -139,129 +203,77 @@ export function TemplateBuilder({ onUseTemplate }: TemplateBuilderProps) {
     }
   }
 
-  function useTemplateNow() {
-    if (!pdfFile || !canExport) return;
-
-    const mapping = createMapping(templateName, pdfFile.name, fields);
-    onUseTemplate({
-      pdfFile,
-      mapping,
-      mappingFileName: getMappingFileName(pdfFile.name),
-    });
-  }
-
   async function importMapping(file: File) {
     setError(null);
-    setMappingFileName(file.name);
+    onMappingFileNameChange(file.name);
 
     try {
       const mapping = await readMappingFile(file);
-      setTemplateName(mapping.templateName);
-      setTemplatePdfName(mapping.templatePdfName);
-      setTemplateMatch(
-        getTemplateMatchResult(pdfFile?.name, mapping.templatePdfName, file.name),
-      );
-      setFields(mapping.fields);
+      onMappingNameChange(mapping.templateName);
+      onMappingPdfNameChange(mapping.templatePdfName);
+      onFieldsChange(mapping.fields);
+      onLayoutSaved();
       setActiveKey(mapping.fields[0]?.key ?? null);
       setPageNumber(mapping.fields[0]?.page ?? 1);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not read template JSON.');
+      setError(caught instanceof Error ? caught.message : 'Could not read Mapping File.');
     }
   }
 
   return (
     <main className="page-shell">
       <section className="toolbar">
-        <FilePicker
-          id="builder-pdf"
-          label="PDF"
-          accept=".pdf,application/pdf"
-          fileName={pdfFile?.name}
-          onChange={handlePdfUpload}
-        />
+        <div className="upload-control">
+          <FilePicker
+            id="builder-pdf"
+            label="PDF"
+            accept=".pdf,application/pdf"
+            fileName={pdfFile?.name}
+            onChange={handlePdfUpload}
+          />
+          <p className="upload-note">Upload PDF only. Word documents should be saved as PDF before use.</p>
+        </div>
         <FilePicker
           id="builder-template-json"
-          label="Import Template JSON"
+          label="Load Mapping File"
           accept=".json,application/json"
+          fileName={mappingFileName}
           onChange={importMapping}
         />
-        <label className="compact-input">
-          Template Name
-          <input
-            value={templateName}
-            onChange={(event) => setTemplateName(event.currentTarget.value)}
-          />
-        </label>
-        <button type="button" onClick={addField} disabled={!pdfDocument}>
-          Add Field
-        </button>
-        <button
-          type="button"
-          className={showDebug ? 'active' : ''}
-          onClick={() => setShowDebug((current) => !current)}
-          disabled={!pdfDocument}
-        >
-          Debug Coordinates
-        </button>
-        <button type="button" onClick={exportMapping} disabled={!canExport}>
-          Export Template JSON
-        </button>
-        <button type="button" onClick={exportFlattenedPdf} disabled={!pdfFile || isFlattening}>
-          {isFlattening ? 'Exporting Flattened PDF' : 'Export Flattened PDF'}
-        </button>
-        <button type="button" onClick={useTemplateNow} disabled={!canExport}>
-          Use This Template Now
-        </button>
       </section>
 
       {error && <p className="error-text">{error}</p>}
-      {templateMatch && (
-        <p className={templateMatch.kind === 'confirmed' ? 'success-text' : 'warning-text'}>
-          {templateMatch.message}
+      <p className={layoutStatus === 'unsaved' ? 'warning-text' : 'success-text'}>
+        Form Mapping: {layoutStatus === 'unsaved' ? 'Unsaved changes' : 'Saved'}
+      </p>
+      {mappingMatch && (
+        <p className={mappingMatch.kind === 'confirmed' ? 'success-text' : 'warning-text'}>
+          {mappingMatch.message}
         </p>
       )}
 
-      <section className="workspace">
-        <div className="pdf-pane">
-          <PageControls
-            pageNumber={pageNumber}
-            pageCount={pdfDocument?.numPages ?? 0}
-            onPageChange={setPageNumber}
-          />
-          {pdfDocument ? (
-            <div
-              className="pdf-stage"
-              style={{ width: pageSize.width, minHeight: pageSize.height }}
-            >
-              <PdfPageCanvas
-                pdfDocument={pdfDocument}
-                pageNumber={pageNumber}
-                scale={RENDER_SCALE}
-                onPageSize={setPageSize}
-              />
-              <FieldOverlay
-                fields={fieldsForPage}
-                activeKey={activeKey}
-                scale={RENDER_SCALE}
-                onSelect={setActiveKey}
-                onChange={updateField}
-              />
-              {showDebug && (
-                <CoordinateDebugOverlay
-                  activeField={activeField}
-                  pageHeight={pageSize.height}
-                  pageWidth={pageSize.width}
-                  scale={RENDER_SCALE}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="drop-placeholder">Upload a PDF to start mapping fields.</div>
-          )}
-        </div>
-
+      <section className="workspace builder-workspace">
         <aside className="side-panel">
-          <h2>Field Mapping</h2>
+          <h2>Form Mapping</h2>
+          <div className="setup-actions">
+            <label>
+              Mapping Name
+              <input
+                value={mappingName}
+                onChange={(event) => {
+                  onMappingNameChange(event.currentTarget.value);
+                  onLayoutDirty();
+                }}
+              />
+            </label>
+            <button type="button" className="primary-action" onClick={exportMapping} disabled={!canExport}>
+              Save Form Mapping
+            </button>
+            <p>The Mapping Name is saved with the mapping file. Most forms only need Save Form Mapping; use the same PDF with the saved mapping file.</p>
+          </div>
+          <button type="button" className="add-field-action" onClick={addField} disabled={!pdfDocument}>
+            Add Field
+          </button>
           <FieldEditor
             field={activeField}
             onChange={(patch) => activeField && updateField(activeField.key, patch)}
@@ -283,12 +295,78 @@ export function TemplateBuilder({ onUseTemplate }: TemplateBuilderProps) {
                   }}
                 >
                   <span>{field.label}</span>
-                  <small>{field.key}</small>
+                  <small>Order {field.order ?? '-'}</small>
                 </button>
               ))
             )}
           </div>
+          <section className="advanced-panel">
+            <h3>Advanced</h3>
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={showDebug}
+                disabled={!pdfDocument}
+                onChange={(event) => setShowDebug(event.currentTarget.checked)}
+              />
+              Show Grid
+            </label>
+            <div className="optional-action">
+              <button
+                type="button"
+                className="secondary-action"
+                onClick={exportFlattenedPdf}
+                disabled={!pdfFile || isFlattening}
+              >
+                {isFlattening ? 'Saving Cleaned PDF' : 'Save Cleaned PDF (optional)'}
+              </button>
+              <p>
+                Use this if the original PDF has fillable fields or formatting issues.
+                Creates a clean version that works reliably with your mapping.
+              </p>
+            </div>
+          </section>
         </aside>
+
+        <div className="pdf-pane">
+          <PageControls
+            pageNumber={pageNumber}
+            pageCount={pdfDocument?.numPages ?? 0}
+            onPageChange={setPageNumber}
+          />
+          {pdfDocument ? (
+            <div
+              className="pdf-stage"
+              style={{ width: pageSize.width, minHeight: pageSize.height }}
+            >
+              <PdfPageCanvas
+                pdfDocument={pdfDocument}
+                pageNumber={pageNumber}
+                scale={RENDER_SCALE}
+                onPageSize={setPageSize}
+              />
+              <FieldOverlay
+                fields={fieldsForPage}
+                activeKey={activeKey}
+                fieldValues={values}
+                scale={RENDER_SCALE}
+                onSelect={setActiveKey}
+                onChange={updateField}
+                onDelete={deleteField}
+              />
+              {showDebug && (
+                <CoordinateDebugOverlay
+                  activeField={activeField}
+                  pageHeight={pageSize.height}
+                  pageWidth={pageSize.width}
+                  scale={RENDER_SCALE}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="drop-placeholder">Upload a PDF to start mapping fields.</div>
+          )}
+        </div>
       </section>
     </main>
   );
@@ -315,4 +393,18 @@ function makeUniqueKey(baseKey: string, fields: Field[]) {
   let suffix = 2;
   while (existingKeys.has(`${baseKey}_${suffix}`)) suffix += 1;
   return `${baseKey}_${suffix}`;
+}
+
+function isDeleteKey(event: KeyboardEvent) {
+  return event.key === 'Delete' || event.key === 'Backspace';
+}
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable
+  );
 }

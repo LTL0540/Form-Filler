@@ -10,6 +10,8 @@ export type Field = {
   width: number;
   height: number;
   order?: number;
+  fontSize?: number;
+  lineHeight?: number;
 };
 
 export type MappingFile = {

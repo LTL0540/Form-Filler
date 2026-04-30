@@ -4,12 +4,12 @@ export type TemplateMatchResult = {
 };
 
 export function getMappingFileName(pdfFileName?: string) {
-  if (!pdfFileName) return 'template.mapping.json';
+  if (!pdfFileName) return 'field-mapping.mapping.json';
   return `${stripPdfExtension(pdfFileName)}.mapping.json`;
 }
 
 export function getFlattenedPdfFileName(pdfFileName?: string) {
-  if (!pdfFileName) return 'template.flattened.pdf';
+  if (!pdfFileName) return 'field-mapping.flattened.pdf';
   return `${stripPdfExtension(pdfFileName)}.flattened.pdf`;
 }
 
@@ -31,14 +31,14 @@ export function getTemplateMatchResult(
   if (templatePdfBase === pdfBase || mappingBase === pdfBase) {
     return {
       kind: 'confirmed',
-      message: 'Template match confirmed.',
+      message: 'Layout match confirmed.',
     };
   }
 
-  const expectedName = templatePdfName || mappingFileName || 'the imported template';
+  const expectedName = templatePdfName || mappingFileName || 'the imported mapping';
   return {
     kind: 'warning',
-    message: `Template PDF mismatch: uploaded PDF is ${pdfFileName}, but the template references ${expectedName}. You can continue if this is intentional.`,
+    message: `Field layout PDF mismatch: uploaded PDF is ${pdfFileName}, but the layout references ${expectedName}. You can continue if this is intentional.`,
   };
 }
 

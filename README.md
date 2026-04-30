@@ -1,89 +1,67 @@
-# Browser PDF Form Filler
+# FormONE
 
-Version 0.5.0
+Map → Fill → Print
 
-Browser PDF Form Filler is a client-side React app for building reusable PDF field templates and filling those PDFs from manual or newline-separated input. It is designed for simple clinical or administrative workflows where the PDF and entered values should stay on the user's machine.
+Set it up once. Fill it anytime. Stays local.
 
-## Repository Description
+FormONE is a browser-based tool for mapping and filling PDF/static forms locally. It lets users map fields on a PDF once, save the form mapping, then paste or enter new values to generate a completed PDF.
 
-Browser-only PDF template builder and form filler with local PDF generation.
+## What it does
 
-## Privacy Model
+- Upload a PDF form
+- Map fields visually
+- Save a reusable form mapping file
+- Load a PDF + mapping file later
+- Paste values in order
+- Preview filled fields
+- Print/download the completed form
 
-- No backend, API, database, authentication, or cloud storage.
-- PDF files are uploaded into the browser session only.
-- User-entered values stay in React memory only.
-- Filled PDFs are generated locally in the browser with `pdf-lib`.
-- Template JSON exports contain only non-PHI mapping metadata and coordinates.
-- Clearing the session removes the current PDF, template, pasted text, and field values from memory.
+## Privacy model
 
-## Features
+FormONE runs entirely in the browser.
 
-- Upload and render PDF pages with `pdf.js`.
-- Place draggable and resizable field boxes with `react-rnd`.
-- Edit field number/order and display title.
-- Export reusable template mapping JSON.
-- Import mapping JSON later for fine-tuning or filling.
-- Confirm whether an imported mapping matches the uploaded PDF name.
-- Paste newline-separated values and apply them to fields by order.
-- Generate a downloadable filled PDF entirely in the browser.
-- Export a flattened/printed PDF copy for difficult source PDFs.
-- Deploy automatically to GitHub Pages through GitHub Actions.
+- No backend
+- No server calls
+- No database
+- No account
+- No data sent or stored by the app
+- Form values are kept only in browser memory during the session
 
-## Tech Stack
+Form mapping files may store non-PHI layout metadata such as field labels, order, coordinates, font size, and PDF filename. Do not store patient details or confidential information in mapping names or field labels.
 
-- React + Vite
-- TypeScript
-- `pdf.js` via `pdfjs-dist`
-- `pdf-lib`
-- `react-rnd`
+## Important use notes
 
-## Run Locally
+Use only on secure, approved devices and networks.
 
-```bash
-npm install
-npm run dev
-```
+Verify all outputs before printing, saving, uploading, faxing, or submitting completed forms.
 
-Then open the local URL printed by Vite.
+Word documents should be saved as PDF before use. This tool depends on fixed PDF coordinates, and DOC/DOCX layout may shift during conversion.
 
-## Build
+## Normal workflow
 
-```bash
-npm run build
-```
-
-The production build is written to `dist/`.
-
-## Deploy
-
-GitHub Actions builds and deploys `dist` to GitHub Pages on pushes to `main`.
-
-In the repository settings, set Pages source to **GitHub Actions**.
-
-## Workflow
-
-1. Open **Template Builder**.
+1. Open Form Setup.
 2. Upload a blank PDF.
-3. Add field boxes over the rendered PDF.
-4. Set each field's number and title.
-5. Export the template JSON, or use the current template immediately in **Form Filler**.
-6. In **Form Filler**, upload the blank PDF and template JSON.
-7. Enter values manually or paste newline-separated values and click **Apply Pasted Lines**.
-8. Generate the filled PDF.
-9. Use **Clear Values** or **Clear Session** when finished.
+3. Add and position fields.
+4. Save Form Mapping.
+5. Open Form Filler.
+6. Load the PDF and mapping file, or continue from the current setup session.
+7. Paste or enter values.
+8. Select Print Completed Form to download the completed PDF.
 
-## Template JSON
+## Files
 
-Template exports include:
+- PDF: the blank/static form
+- Mapping file: reusable JSON file containing field positions and layout metadata
+- Completed form: generated filled PDF
 
-- `templateName`
-- `templatePdfName`
-- ordered `fields`
-- each field's `key`, `label`, `type`, `page`, `x`, `y`, `width`, `height`, and `order`
+## Limitations
 
-Template exports do not include patient or user-entered values.
+- PDF/static forms only
+- No native DOC/DOCX support
+- Single-line text fields only
+- Output should always be reviewed manually
+- Browser and PDF rendering differences may affect alignment
 
-## License
+## Disclaimer
 
-MIT. See [LICENSE](LICENSE).
+This tool is provided as-is, without warranty. Users are responsible for ensuring appropriate use, device/network security, privacy compliance, and output verification.

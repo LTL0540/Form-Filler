@@ -148,6 +148,7 @@ export default function App() {
         <p>Runs entirely in your browser. No data is sent or stored by this app.</p>
         <p>Use only on secure, approved devices and networks.</p>
         <p>Verify outputs before use.</p>
+        <p>Source code licensed for noncommercial use under the <a href="https://polyformproject.org/licenses/noncommercial/1.0.0/" target="_blank" rel="noreferrer">PolyForm Noncommercial License 1.0.0</a>.</p>
       </footer>
     </div>
   );

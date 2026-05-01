@@ -62,6 +62,14 @@ Word documents should be saved as PDF before use. This tool depends on fixed PDF
 - Output should always be reviewed manually
 - Browser and PDF rendering differences may affect alignment
 
+## License
+
+FormONE is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/).
+
+You may use, copy, modify, and share this software for noncommercial purposes.
+
+Commercial use, resale, paid hosting, or incorporation into a commercial product or service requires written permission from the copyright holder.
+
 ## Disclaimer
 
 This tool is provided as-is, without warranty. Users are responsible for ensuring appropriate use, device/network security, privacy compliance, and output verification.

@@ -3,7 +3,7 @@
   "version": "0.6.0",
   "description": "FormONE: browser-only PDF field setup, filling, and printing.",
   "private": true,
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

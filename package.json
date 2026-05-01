@@ -1,6 +1,6 @@
 {
   "name": "browser-pdf-form-filler",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "FormONE: browser-only PDF field setup, filling, and printing.",
   "private": true,
   "license": "MIT",

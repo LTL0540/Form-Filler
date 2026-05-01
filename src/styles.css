@@ -111,24 +111,19 @@ label {
   padding: 18px 24px;
 }
 
-.app-header h1 {
-  margin: 0;
-  font-size: 1.25rem;
-  line-height: 1.2;
+.brand-mark {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
 }
 
-.app-header p {
-  margin: 4px 0 0;
-  color: #667085;
-  font-size: 0.9rem;
-}
-
-.app-header small {
+.brand-mark img {
   display: block;
-  margin-top: 2px;
-  color: #667085;
-  font-size: 0.78rem;
-  line-height: 1.35;
+  width: 230px;
+  max-width: 100%;
+  height: 46px;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .header-actions {

@@ -78,10 +78,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div>
-          <h1>FormONE</h1>
-          <p>Map → Fill → Print</p>
-          <small>Set it up once. Fill it anytime. Stays local.</small>
+        <div className="brand-mark">
+          <img src={`${import.meta.env.BASE_URL}formone-logo.png`} alt="FormONE" />
         </div>
         <div className="header-actions">
           <nav className="mode-toggle" aria-label="Mode">

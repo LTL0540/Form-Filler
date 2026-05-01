@@ -6,6 +6,7 @@ type PdfPageCanvasProps = {
   pageNumber: number;
   scale: number;
   onPageSize?: (size: { width: number; height: number }) => void;
+  onCanvasRendered?: (canvas: HTMLCanvasElement) => void;
 };
 
 export function PdfPageCanvas({
@@ -13,6 +14,7 @@ export function PdfPageCanvas({
   pageNumber,
   scale,
   onPageSize,
+  onCanvasRendered,
 }: PdfPageCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isRendering, setIsRendering] = useState(false);
@@ -41,7 +43,10 @@ export function PdfPageCanvas({
 
       renderTask = page.render({ canvas, canvasContext: context, viewport });
       await renderTask.promise;
-      if (!isCancelled) setIsRendering(false);
+      if (!isCancelled) {
+        setIsRendering(false);
+        onCanvasRendered?.(canvas);
+      }
     }
 
     renderPage().catch(() => {
@@ -52,7 +57,7 @@ export function PdfPageCanvas({
       isCancelled = true;
       renderTask?.cancel();
     };
-  }, [onPageSize, pageNumber, pdfDocument, scale]);
+  }, [onCanvasRendered, onPageSize, pageNumber, pdfDocument, scale]);
 
   return (
     <>

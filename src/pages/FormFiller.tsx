@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FieldOverlay } from '../components/FieldOverlay';
 import { FilePicker } from '../components/FilePicker';
-import { LocalProcessingNotice } from '../components/LocalProcessingNotice';
 import { PageControls } from '../components/PageControls';
 import { PasteValuesPanel } from '../components/PasteValuesPanel';
 import { PdfPageCanvas } from '../components/PdfPageCanvas';
@@ -22,7 +21,6 @@ const PREVIEW_SCALE = 1.15;
 
 type FormFillerProps = {
   pdfFile: File | null;
-  mappingName: string;
   mappingPdfName: string | undefined;
   mappingFileName: string | undefined;
   fields: Field[];
@@ -43,7 +41,6 @@ type FormFillerProps = {
 
 export function FormFiller({
   pdfFile,
-  mappingName,
   mappingPdfName,
   mappingFileName,
   fields,
@@ -80,6 +77,11 @@ export function FormFiller({
         : null,
     [mappingFileName, mappingPdfName, pdfFile?.name],
   );
+  const hasMappingContext = !!pdfFile || !!mappingFileName || orderedFields.length > 0;
+  const mappingMismatchText =
+    mappingMatch?.kind === 'warning'
+      ? `Mapping references a different PDF: ${mappingPdfName ?? mappingFileName}`
+      : null;
   const hasSessionReadyToFill = !!pdfFile && orderedFields.length > 0;
 
   useEffect(() => {
@@ -184,27 +186,24 @@ export function FormFiller({
           />
           <p className="upload-note">Upload PDF only. Word documents should be saved as PDF before use.</p>
         </div>
-        <FilePicker
-          id="mapping-json"
-          label="Load Mapping File"
-          accept=".json,application/json"
-          fileName={mappingFileName}
-          onChange={handleMappingUpload}
-        />
+        <div className="upload-control">
+          <FilePicker
+            id="mapping-json"
+            label="Load Mapping File"
+            accept=".json,application/json"
+            fileName={mappingFileName}
+            onChange={handleMappingUpload}
+          />
+          {mappingMismatchText && <p className="upload-warning">{mappingMismatchText}</p>}
+        </div>
       </section>
 
       {error && <p className="error-text">{error}</p>}
-      {mappingName && <p className="template-status">{mappingName}</p>}
-      <p className={layoutStatus === 'unsaved' ? 'warning-text' : 'success-text'}>
-        Form Mapping: {layoutStatus === 'unsaved' ? 'Unsaved changes' : 'Saved'}
-      </p>
-      {mappingMatch && (
-        <p className={mappingMatch.kind === 'confirmed' ? 'success-text' : 'warning-text'}>
-          {mappingMatch.message}
+      {hasMappingContext && (
+        <p className={layoutStatus === 'unsaved' ? 'warning-text' : 'success-text'}>
+          Form Mapping • {layoutStatus === 'unsaved' ? 'Unsaved changes' : 'Saved'}
         </p>
       )}
-
-      <LocalProcessingNotice />
 
       <section className="filler-workspace">
         <div className="form-shell">

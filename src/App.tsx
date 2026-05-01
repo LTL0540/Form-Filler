@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { APP_VERSION } from './lib/appVersion';
+import { getTemplateMatchResult } from './lib/templateNames';
 import { FormFiller } from './pages/FormFiller';
 import { TemplateBuilder } from './pages/TemplateBuilder';
 import type { Field } from './types/field';
@@ -40,6 +40,26 @@ export default function App() {
     setSessionVersion((version) => version + 1);
   }
 
+  function updatePdfFile(nextFile: File | null) {
+    if (!nextFile) {
+      setPdfFile(null);
+      return;
+    }
+
+    const matchResult =
+      mappingFileName && mappingPdfName
+        ? getTemplateMatchResult(nextFile.name, mappingPdfName, mappingFileName)
+        : null;
+
+    if (matchResult?.kind === 'warning') {
+      setValues({});
+      setPasteText('');
+      setPasteWarning(null);
+    }
+
+    setPdfFile(nextFile);
+  }
+
   function updateFields(nextFields: Field[]) {
     setFields(nextFields);
     setHasUnsavedLayoutChanges(true);
@@ -48,6 +68,10 @@ export default function App() {
   function updateMappingName(nextName: string) {
     setMappingName(nextName);
     setHasUnsavedLayoutChanges(true);
+  }
+
+  function updateMappingFileName(nextName: string | undefined) {
+    setMappingFileName(nextName);
   }
 
   return (
@@ -90,11 +114,11 @@ export default function App() {
           mappingFileName={mappingFileName}
           fields={fields}
           values={values}
-          onPdfFileChange={setPdfFile}
+          onPdfFileChange={updatePdfFile}
           layoutStatus={hasUnsavedLayoutChanges ? 'unsaved' : 'saved'}
           onMappingNameChange={updateMappingName}
           onMappingPdfNameChange={setMappingPdfName}
-          onMappingFileNameChange={setMappingFileName}
+          onMappingFileNameChange={updateMappingFileName}
           onFieldsChange={updateFields}
           onLayoutSaved={() => setHasUnsavedLayoutChanges(false)}
         />
@@ -102,7 +126,6 @@ export default function App() {
         <FormFiller
           key={`filler-${sessionVersion}`}
           pdfFile={pdfFile}
-          mappingName={mappingName}
           mappingPdfName={mappingPdfName}
           mappingFileName={mappingFileName}
           fields={fields}
@@ -110,10 +133,10 @@ export default function App() {
           pasteText={pasteText}
           pasteWarning={pasteWarning}
           layoutStatus={hasUnsavedLayoutChanges ? 'unsaved' : 'saved'}
-          onPdfFileChange={setPdfFile}
+          onPdfFileChange={updatePdfFile}
           onMappingNameChange={setMappingName}
           onMappingPdfNameChange={setMappingPdfName}
-          onMappingFileNameChange={setMappingFileName}
+          onMappingFileNameChange={updateMappingFileName}
           onFieldsChange={setFields}
           onValuesChange={setValues}
           onPasteTextChange={setPasteText}
@@ -125,7 +148,6 @@ export default function App() {
         <p>Runs entirely in your browser. No data is sent or stored by this app.</p>
         <p>Use only on secure, approved devices and networks.</p>
         <p>Verify outputs before use.</p>
-        <p>FormONE • v{APP_VERSION}</p>
       </footer>
     </div>
   );

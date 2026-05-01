@@ -1,4 +1,5 @@
 :root {
+  --workspace-sticky-top: 16px;
   color: #111827;
   background: #f5f7fa;
   font-family:
@@ -198,14 +199,30 @@ label {
 .toolbar-save-actions {
   display: grid;
   min-width: 220px;
-  gap: 8px;
+  gap: 6px;
   margin-left: auto;
+}
+
+.toolbar-save-actions p {
+  margin: 0;
+  color: #667085;
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 
 .upload-note {
   margin: 0;
   color: #667085;
   font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.upload-warning {
+  margin: 0;
+  max-width: 280px;
+  color: #9a3412;
+  font-size: 0.78rem;
+  font-weight: 700;
   line-height: 1.35;
 }
 
@@ -259,6 +276,7 @@ label {
 
 .builder-workspace {
   grid-template-columns: 340px minmax(0, 1fr);
+  align-items: start;
 }
 
 .filler-workspace {
@@ -278,6 +296,11 @@ label {
   padding: 16px;
 }
 
+.builder-workspace .pdf-pane {
+  min-height: 520px;
+  overflow: visible;
+}
+
 .pdf-stage {
   position: relative;
   margin: 0 auto;
@@ -286,22 +309,54 @@ label {
 }
 
 .pdf-pane-header {
-  display: flex;
+  position: sticky;
+  top: var(--workspace-sticky-top);
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+  border-bottom: 1px solid rgb(215 222 232 / 0.8);
+  border-radius: 6px 6px 0 0;
+  background: #e9eef5;
+  box-shadow: 0 8px 14px rgb(17 24 39 / 0.06);
+  padding: 0 0 10px;
 }
 
 .pdf-pane-header .page-controls {
   margin-bottom: 0;
 }
 
+.pdf-toolbar-left,
+.pdf-toolbar-center,
 .zoom-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  gap: 8px;
+}
+
+.pdf-toolbar-left {
+  justify-content: start;
+}
+
+.pdf-toolbar-center {
+  justify-content: center;
+}
+
+.pdf-pane-header .add-field-action {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.zoom-controls {
+  justify-content: end;
+}
+
+.page-indicator {
+  color: #344054;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .zoom-controls button {
@@ -326,7 +381,7 @@ label {
 
 .field-box {
   display: flex !important;
-  align-items: start;
+  align-items: flex-end;
   overflow: visible;
   border: 1px solid #1f6f8b;
   background: rgb(31 111 139 / 0.12);
@@ -343,17 +398,31 @@ label {
   color: #7c2d12;
 }
 
+.field-box.suggested {
+  border-style: dashed;
+  border-color: #65a30d;
+  background: rgb(101 163 13 / 0.1);
+  color: #3f6212;
+}
+
+.field-box.suggested.active {
+  border-color: #c2410c;
+  background: rgb(194 65 12 / 0.16);
+  color: #7c2d12;
+}
+
 .field-box.locked {
   cursor: default;
 }
 
 .field-box-text {
-  display: block;
+  display: flex;
+  align-items: flex-end;
   width: 100%;
   height: 100%;
   max-width: 100%;
   overflow: hidden;
-  padding: 2px 4px;
+  padding: 0 4px 1px;
   text-overflow: clip;
   white-space: nowrap;
 }
@@ -446,12 +515,24 @@ label {
 }
 
 .side-panel {
+  position: sticky;
+  top: var(--workspace-sticky-top);
   display: grid;
   gap: 16px;
+  align-self: start;
+  max-height: calc(100vh - (var(--workspace-sticky-top) * 2));
+  overflow: auto;
   border: 1px solid #d7dee8;
   border-radius: 8px;
   background: #ffffff;
   padding: 16px;
+}
+
+.mapping-panel-top {
+  display: grid;
+  gap: 16px;
+  background: #ffffff;
+  padding-bottom: 2px;
 }
 
 .side-panel h2,
@@ -551,21 +632,69 @@ label {
   gap: 8px;
 }
 
-.field-list-item {
-  display: grid;
+.field-list-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   height: auto;
-  justify-items: start;
   padding: 8px 10px;
   text-align: left;
 }
 
-.field-list-item.selected {
+.field-list-toggle span {
+  font-weight: 700;
+}
+
+.field-list-toggle small,
+.field-list-item small {
+  color: #667085;
+}
+
+.field-list-items {
+  display: grid;
+  gap: 6px;
+}
+
+.field-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  border: 1px solid #c8d1dc;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.field-list-row.selected {
   border: 2px solid #c2410c;
   background: #fff3ed;
 }
 
-.field-list-item small {
-  color: #667085;
+.field-list-item {
+  display: grid;
+  height: auto;
+  justify-items: start;
+  border: 0;
+  border-radius: 5px 0 0 5px;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.field-list-delete {
+  min-width: 34px;
+  height: auto;
+  border: 0;
+  border-left: 1px solid #e4e7ec;
+  border-radius: 0 5px 5px 0;
+  background: transparent;
+  color: #b42318;
+  font-weight: 700;
+}
+
+.field-list-more {
+  height: auto;
+  padding: 7px 10px;
+  color: #344054;
 }
 
 .page-controls,
@@ -719,6 +848,17 @@ label {
   }
 
   .side-panel {
+    position: static;
+    max-height: none;
+    overflow: visible;
     order: -1;
+  }
+
+  .builder-workspace .pdf-pane {
+    overflow: auto;
+  }
+
+  .pdf-pane-header {
+    top: 0;
   }
 }

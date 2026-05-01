@@ -8,7 +8,9 @@ type FieldOverlayProps = {
   fieldValues?: Record<string, string>;
   locked?: boolean;
   scale: number;
+  suggestedKeys?: Set<string>;
   onSelect?: (key: string) => void;
+  onDeselect?: () => void;
   onChange?: (key: string, patch: Partial<Field>) => void;
   onDuplicate?: (field: Field) => void;
   onDelete?: (key: string) => void;
@@ -20,18 +22,29 @@ function FieldOverlayComponent({
   fieldValues = {},
   locked = false,
   scale,
+  suggestedKeys,
   onSelect,
+  onDeselect,
   onChange,
   onDuplicate,
   onDelete,
 }: FieldOverlayProps) {
   return (
-    <div className="field-overlay">
+    <div
+      className="field-overlay"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onDeselect?.();
+      }}
+    >
       {fields.map((field) => (
         <Rnd
           key={field.key}
           bounds="parent"
-          className={getFieldClassName(field.key === activeKey, locked)}
+          className={getFieldClassName(
+            field.key === activeKey,
+            locked,
+            suggestedKeys?.has(field.key) ?? false,
+          )}
           size={{
             width: field.width * scale,
             height: field.height * scale,
@@ -44,7 +57,10 @@ function FieldOverlayComponent({
           minHeight={20}
           disableDragging={locked}
           enableResizing={!locked}
-          onMouseDown={() => onSelect?.(field.key)}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+            onSelect?.(field.key);
+          }}
           onDragStop={(_, data) => {
             if (locked || !onChange) return;
             onChange(field.key, {
@@ -63,7 +79,11 @@ function FieldOverlayComponent({
           }}
         >
           {!locked && field.key === activeKey && (
-            <div className="field-inline-toolbar" onMouseDown={(event) => event.stopPropagation()}>
+            <div
+              className="field-inline-toolbar"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            >
               <button
                 type="button"
                 className="font-smaller"
@@ -127,8 +147,8 @@ function getPreviewText(field: Field, value: string | undefined) {
   return field.label || field.key;
 }
 
-function getFieldClassName(isActive: boolean, locked: boolean) {
-  return ['field-box', isActive ? 'active' : '', locked ? 'locked' : '']
+function getFieldClassName(isActive: boolean, locked: boolean, isSuggested: boolean) {
+  return ['field-box', isSuggested ? 'suggested' : '', isActive ? 'active' : '', locked ? 'locked' : '']
     .filter(Boolean)
     .join(' ');
 }

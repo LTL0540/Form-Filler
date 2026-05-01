@@ -18,7 +18,7 @@ export function sortFields(fields: Field[]) {
 export function normalizeFieldOrders(fields: Field[]) {
   return fields.map((field, index) => ({
     ...field,
-    type: field.type ?? 'text',
+    type: normalizeFieldType(field.type),
     order: field.order ?? index + 1,
     fontSize: field.fontSize ?? DEFAULT_FONT_SIZE,
     lineHeight: field.lineHeight ?? DEFAULT_LINE_HEIGHT,
@@ -48,6 +48,7 @@ export function createMapping(
       order: field.order,
       fontSize: field.fontSize,
       lineHeight: field.lineHeight,
+      ...(field.type === 'static' ? { staticText: field.staticText ?? '' } : {}),
     })),
   };
 }
@@ -68,8 +69,8 @@ export async function readMappingFile(file: File): Promise<MappingFile> {
     if (!field.key || keys.has(field.key)) {
       throw new Error('Every field in the mapping must have a unique key.');
     }
-    if (field.type !== 'text') {
-      throw new Error('Only text fields are supported in this MVP.');
+    if (field.type !== 'dynamic' && field.type !== 'static') {
+      throw new Error('Only dynamic and static text fields are supported.');
     }
     if (
       !Number.isFinite(field.page) ||
@@ -101,9 +102,13 @@ export function getLineCount(text: string) {
   return text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length;
 }
 
+export function getDynamicFields(fields: Field[]) {
+  return sortFields(fields).filter((field) => field.type !== 'static');
+}
+
 export function mapLinesToFieldValues(fields: Field[], text: string) {
   const lines = text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n');
-  return sortFields(fields).reduce<Record<string, string>>((result, field, index) => {
+  return getDynamicFields(fields).reduce<Record<string, string>>((result, field, index) => {
     result[field.key] = lines[index] ?? '';
     return result;
   }, {});
@@ -118,4 +123,8 @@ export function getLineWarning(lineCount: number, fieldCount: number) {
     return `${difference} field${difference === 1 ? '' : 's'} will remain empty.`;
   }
   return null;
+}
+
+function normalizeFieldType(type: unknown): Field['type'] {
+  return type === 'static' ? 'static' : 'dynamic';
 }

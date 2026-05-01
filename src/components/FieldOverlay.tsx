@@ -9,6 +9,7 @@ type FieldOverlayProps = {
   locked?: boolean;
   scale: number;
   suggestedKeys?: Set<string>;
+  textOnly?: boolean;
   onSelect?: (key: string) => void;
   onDeselect?: () => void;
   onChange?: (key: string, patch: Partial<Field>) => void;
@@ -23,6 +24,7 @@ function FieldOverlayComponent({
   locked = false,
   scale,
   suggestedKeys,
+  textOnly = false,
   onSelect,
   onDeselect,
   onChange,
@@ -36,7 +38,23 @@ function FieldOverlayComponent({
         if (event.target === event.currentTarget) onDeselect?.();
       }}
     >
-      {fields.map((field) => (
+      {fields.map((field) =>
+        textOnly ? (
+          <span
+            key={field.key}
+            className="static-preview-text"
+            style={{
+              left: field.x * scale,
+              top: field.y * scale,
+              width: field.width * scale,
+              height: field.height * scale,
+              fontSize: (field.fontSize ?? 12) * scale,
+              lineHeight: 1.15,
+            }}
+          >
+            {getPreviewText(field, fieldValues[field.key])}
+          </span>
+        ) : (
         <Rnd
           key={field.key}
           bounds="parent"
@@ -44,6 +62,7 @@ function FieldOverlayComponent({
             field.key === activeKey,
             locked,
             suggestedKeys?.has(field.key) ?? false,
+            field.type === 'static',
           )}
           size={{
             width: field.width * scale,
@@ -116,6 +135,23 @@ function FieldOverlayComponent({
               >
                 Duplicate
               </button>
+              <details className="toolbar-more" onMouseDown={(event) => event.stopPropagation()}>
+                <summary aria-label="More field options">⋯</summary>
+                <div className="toolbar-menu">
+                  <button
+                    type="button"
+                    onClick={() => onChange?.(field.key, { type: 'dynamic', staticText: undefined })}
+                  >
+                    Dynamic
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChange?.(field.key, { type: 'static', staticText: field.staticText ?? '' })}
+                  >
+                    Static
+                  </button>
+                </div>
+              </details>
               <button
                 type="button"
                 className="toolbar-delete"
@@ -136,19 +172,21 @@ function FieldOverlayComponent({
             {getPreviewText(field, fieldValues[field.key])}
           </span>
         </Rnd>
-      ))}
+        ),
+      )}
     </div>
   );
 }
 
 function getPreviewText(field: Field, value: string | undefined) {
+  if (field.type === 'static') return field.staticText?.trim() || field.label || 'Static text';
   if (value?.trim()) return value;
   if (field.label || field.key) return 'Sample text';
   return field.label || field.key;
 }
 
-function getFieldClassName(isActive: boolean, locked: boolean, isSuggested: boolean) {
-  return ['field-box', isSuggested ? 'suggested' : '', isActive ? 'active' : '', locked ? 'locked' : '']
+function getFieldClassName(isActive: boolean, locked: boolean, isSuggested: boolean, isStatic: boolean) {
+  return ['field-box', isStatic ? 'static' : '', isSuggested ? 'suggested' : '', isActive ? 'active' : '', locked ? 'locked' : '']
     .filter(Boolean)
     .join(' ');
 }

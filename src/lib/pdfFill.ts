@@ -21,7 +21,7 @@ export async function fillPdf(
   const pageCount = outputDocument.getPageCount();
 
   for (const field of fields) {
-    const value = values[field.key] ?? '';
+    const value = field.type === 'static' ? field.staticText ?? '' : values[field.key] ?? '';
     if (!value.trim()) continue;
 
     if (field.page < 1 || field.page > pageCount) {

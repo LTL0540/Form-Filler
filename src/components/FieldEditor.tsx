@@ -41,6 +41,31 @@ export function FieldEditor({
         />
       </label>
       <label>
+        Field Type
+        <select
+          value={field.type}
+          onChange={(event) =>
+            onChange({
+              type: event.currentTarget.value as Field['type'],
+              staticText: event.currentTarget.value === 'static' ? field.staticText ?? '' : undefined,
+            })
+          }
+        >
+          <option value="dynamic">Dynamic</option>
+          <option value="static">Static</option>
+        </select>
+      </label>
+      {field.type === 'static' && (
+        <label>
+          Text to display
+          <input
+            value={field.staticText ?? ''}
+            onChange={(event) => onChange({ staticText: event.currentTarget.value })}
+          />
+          <small className="field-hint">Do not include PHI or confidential information. Static text is saved in the mapping file.</small>
+        </label>
+      )}
+      <label>
         Font size
         <select
           value={field.fontSize ?? 12}

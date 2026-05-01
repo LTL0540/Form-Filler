@@ -65,6 +65,8 @@ export function TemplateBuilder({
   const [suggestedFieldKeys, setSuggestedFieldKeys] = useState<Set<string>>(() => new Set());
   const [isJumpListOpen, setIsJumpListOpen] = useState(true);
   const [showAllJumpFields, setShowAllJumpFields] = useState(false);
+  const [showDynamicJumpFields, setShowDynamicJumpFields] = useState(true);
+  const [showStaticJumpFields, setShowStaticJumpFields] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pdfPaneRef = useRef<HTMLDivElement | null>(null);
   const pdfStageRef = useRef<HTMLDivElement | null>(null);
@@ -95,7 +97,14 @@ export function TemplateBuilder({
       !field.key || fields.findIndex((candidate) => candidate.key === field.key) !== index,
   );
   const canExport = !!pdfFile && fields.length > 0 && !hasInvalidKeys;
-  const visibleJumpFields = showAllJumpFields ? fields : fields.slice(0, JUMP_LIST_LIMIT);
+  const filteredJumpFields = fields.filter(
+    (field) =>
+      (field.type === 'static' && showStaticJumpFields) ||
+      (field.type !== 'static' && showDynamicJumpFields),
+  );
+  const visibleJumpFields = showAllJumpFields
+    ? filteredJumpFields
+    : filteredJumpFields.slice(0, JUMP_LIST_LIMIT);
   const previewScale = RENDER_SCALE * (zoomPercent / 100);
   const pageCount = pdfDocument?.numPages ?? 0;
 
@@ -159,7 +168,7 @@ export function TemplateBuilder({
     setPageNumber(1);
   }
 
-  function addField() {
+  function addField(type: Field['type'] = 'dynamic') {
     const nextIndex = getNextOrder(fields);
     const key = makeUniqueKey(`field_${nextIndex}`, fields);
     const width = Math.round(DEFAULT_FIELD_WIDTH_PX / RENDER_SCALE);
@@ -167,8 +176,8 @@ export function TemplateBuilder({
     const position = getVisibleFieldPosition(width, height);
     const field: Field = {
       key,
-      label: `Field ${nextIndex}`,
-      type: 'text',
+      label: type === 'static' ? `Static Field ${nextIndex}` : `Field ${nextIndex}`,
+      type,
       page: pageNumber,
       x: position.x,
       y: position.y,
@@ -177,6 +186,7 @@ export function TemplateBuilder({
       order: nextIndex,
       fontSize: 12,
       lineHeight: 1.15,
+      ...(type === 'static' ? { staticText: '' } : {}),
     };
 
     onFieldsChange([...fields, field]);
@@ -212,7 +222,7 @@ export function TemplateBuilder({
       suggestedFields.push({
         key: makeUniqueKey(`field_${order}`, [...fields, ...suggestedFields]),
         label: `Suggested Field ${index + 1}`,
-        type: 'text' as const,
+        type: 'dynamic' as const,
         page: pageNumber,
         x: suggestion.x,
         y: suggestion.y,
@@ -477,8 +487,28 @@ export function TemplateBuilder({
             </button>
             {isJumpListOpen && (
               <>
+                <div className="field-list-filters" aria-label="Jump to Field filters">
+                  <label className="toggle-label compact-toggle">
+                    <input
+                      type="checkbox"
+                      checked={showDynamicJumpFields}
+                      onChange={(event) => setShowDynamicJumpFields(event.currentTarget.checked)}
+                    />
+                    Show Dynamic Fields
+                  </label>
+                  <label className="toggle-label compact-toggle">
+                    <input
+                      type="checkbox"
+                      checked={showStaticJumpFields}
+                      onChange={(event) => setShowStaticJumpFields(event.currentTarget.checked)}
+                    />
+                    Show Static Fields
+                  </label>
+                </div>
                 {fields.length === 0 ? (
                   <p className="empty-state">No fields yet.</p>
+                ) : filteredJumpFields.length === 0 ? (
+                  <p className="empty-state compact-empty">No fields visible. Enable a field type filter.</p>
                 ) : (
                   <div className="field-list-items">
                     {visibleJumpFields.map((field) => (
@@ -492,7 +522,7 @@ export function TemplateBuilder({
                           onClick={() => jumpToField(field)}
                         >
                           <span>{field.label}</span>
-                          <small>Page {field.page} · Order {field.order ?? '-'}</small>
+                          <small>Page {field.page} · Order {field.order ?? '-'} · {field.type === 'static' ? 'Static' : 'Dynamic'}</small>
                         </button>
                         <button
                           type="button"
@@ -504,13 +534,13 @@ export function TemplateBuilder({
                         </button>
                       </div>
                     ))}
-                    {fields.length > JUMP_LIST_LIMIT && (
+                    {filteredJumpFields.length > JUMP_LIST_LIMIT && (
                       <button
                         type="button"
                         className="field-list-more"
                         onClick={() => setShowAllJumpFields((isShowingAll) => !isShowingAll)}
                       >
-                        {showAllJumpFields ? 'Show fewer' : `Show all ${fields.length}`}
+                        {showAllJumpFields ? 'Show fewer' : `Show all ${filteredJumpFields.length}`}
                       </button>
                     )}
                   </div>
@@ -570,9 +600,18 @@ export function TemplateBuilder({
               >
                 Next
               </button>
-              <button type="button" className="add-field-action" onClick={addField} disabled={!pdfDocument}>
-                Add Field
-              </button>
+              <div className="control-with-hint">
+                <button type="button" className="add-field-action" onClick={() => addField('dynamic')} disabled={!pdfDocument}>
+                  Add Field
+                </button>
+                <small>Add a box, then drag it over a form field.</small>
+              </div>
+              <div className="control-with-hint">
+                <button type="button" className="secondary-action" onClick={() => addField('static')} disabled={!pdfDocument}>
+                  Add Static Field (do not include PHI)
+                </button>
+                <small>Static fields are saved in the mapping file.</small>
+              </div>
             </div>
             <div className="zoom-controls" aria-label="PDF zoom controls">
               <button

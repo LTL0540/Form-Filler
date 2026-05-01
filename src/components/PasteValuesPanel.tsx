@@ -2,6 +2,7 @@ type PasteValuesPanelProps = {
   value: string;
   warning: string | null;
   disabled: boolean;
+  dynamicFieldCount: number;
   onChange: (value: string) => void;
   onApply: () => void;
   onClear: () => void;
@@ -11,6 +12,7 @@ export function PasteValuesPanel({
   value,
   warning,
   disabled,
+  dynamicFieldCount,
   onChange,
   onApply,
   onClear,
@@ -18,7 +20,8 @@ export function PasteValuesPanel({
   return (
     <div className="paste-panel">
       <label>
-        Paste Values
+        Paste Values — {dynamicFieldCount} dynamic field{dynamicFieldCount === 1 ? '' : 's'}
+        <small className="field-hint">One line per dynamic field. Static fields are skipped.</small>
         <textarea
           value={value}
           rows={7}

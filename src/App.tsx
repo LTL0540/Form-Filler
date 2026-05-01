@@ -18,6 +18,7 @@ export default function App() {
   const [pasteWarning, setPasteWarning] = useState<string | null>(null);
   const [hasUnsavedLayoutChanges, setHasUnsavedLayoutChanges] = useState(false);
   const [sessionVersion, setSessionVersion] = useState(0);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   function clearSession() {
     if (
@@ -99,11 +100,73 @@ export default function App() {
               Form Filler
             </button>
           </nav>
-          <button type="button" className="danger" onClick={clearSession}>
-            Clear Session
-          </button>
+          <div className="header-side-actions">
+            <button type="button" className="help-button" onClick={() => setIsHelpOpen(true)}>
+              Help
+            </button>
+            <button type="button" className="danger" onClick={clearSession}>
+              Clear Session
+            </button>
+          </div>
         </div>
       </header>
+
+      {isHelpOpen && (
+        <div className="help-backdrop" role="presentation" onClick={() => setIsHelpOpen(false)}>
+          <section
+            className="help-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-panel-header">
+              <h2 id="help-title">How to use FormONE</h2>
+              <button type="button" className="help-close" onClick={() => setIsHelpOpen(false)} aria-label="Close help">
+                ×
+              </button>
+            </div>
+            <div className="help-section">
+              <h3>Set up a form</h3>
+              <ol>
+                <li>Go to Form Setup.</li>
+                <li>Upload the blank PDF.</li>
+                <li>Click Add Field.</li>
+                <li>Drag and resize boxes over the form fields.</li>
+                <li>Save Form Mapping.</li>
+              </ol>
+              <p>You only need to set up each form once.</p>
+            </div>
+            <div className="help-section">
+              <h3>Fill a form</h3>
+              <ol>
+                <li>Go to Form Filler.</li>
+                <li>Upload the PDF and Load Mapping File, or continue from the current setup.</li>
+                <li>Paste values in order, one line per field.</li>
+                <li>Review the preview.</li>
+                <li>Click Print Completed Form.</li>
+              </ol>
+            </div>
+            <div className="help-section">
+              <h3>Static fields</h3>
+              <p>Use static fields for text that is always the same, such as clinic name, phone/fax number, address, prescriber name, or standard wording.</p>
+              <p>Do not use static fields for patient-specific or confidential information.</p>
+              <p>Static fields are saved in the form mapping file. Dynamic fields are filled later from pasted or typed values.</p>
+            </div>
+            <div className="help-section">
+              <h3>Tips</h3>
+              <ul>
+                <li>Click a field to edit it.</li>
+                <li>Click outside a field to deselect it.</li>
+                <li>Use Duplicate to copy field size and style.</li>
+                <li>Use Jump to Field to find fields.</li>
+                <li>Save Form Mapping saves layout only. Entered values are not included.</li>
+                <li>Always review the completed PDF before use.</li>
+              </ul>
+            </div>
+          </section>
+        </div>
+      )}
 
       {mode === 'builder' ? (
         <TemplateBuilder

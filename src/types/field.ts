@@ -1,4 +1,5 @@
-export type FieldType = 'text';
+export type FieldType = 'dynamic' | 'static';
+export type LegacyFieldType = FieldType | 'text';
 
 export type Field = {
   key: string;
@@ -12,6 +13,7 @@ export type Field = {
   order?: number;
   fontSize?: number;
   lineHeight?: number;
+  staticText?: string;
 };
 
 export type MappingFile = {

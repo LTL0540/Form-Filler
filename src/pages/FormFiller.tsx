@@ -8,6 +8,7 @@ import { downloadBlob } from '../lib/download';
 import { fillPdf } from '../lib/pdfFill';
 import { loadPdfDocument, type PdfDocument } from '../lib/pdfJs';
 import {
+  getDynamicFields,
   getLineCount,
   getLineWarning,
   mapLinesToFieldValues,
@@ -62,12 +63,18 @@ export function FormFiller({
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState({ width: 0, height: 0 });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showStaticFields, setShowStaticFields] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const orderedFields = useMemo(() => sortFields(fields), [fields]);
+  const dynamicFields = useMemo(() => getDynamicFields(fields), [fields]);
   const canGenerate = !!pdfFile && orderedFields.length > 0 && !isGenerating;
-  const fieldsForPage = useMemo(
-    () => fields.filter((field) => field.page === pageNumber),
+  const dynamicFieldsForPage = useMemo(
+    () => fields.filter((field) => field.page === pageNumber && field.type !== 'static'),
+    [fields, pageNumber],
+  );
+  const staticFieldsForPage = useMemo(
+    () => fields.filter((field) => field.page === pageNumber && field.type === 'static'),
     [fields, pageNumber],
   );
   const mappingMatch: TemplateMatchResult | null = useMemo(
@@ -142,9 +149,9 @@ export function FormFiller({
     const lineCount = getLineCount(pasteText);
     onValuesChange({
       ...values,
-      ...mapLinesToFieldValues(orderedFields, pasteText),
+      ...mapLinesToFieldValues(dynamicFields, pasteText),
     });
-    onPasteWarningChange(getLineWarning(lineCount, orderedFields.length));
+    onPasteWarningChange(getLineWarning(lineCount, dynamicFields.length));
   }
 
   function clearValues() {
@@ -222,16 +229,17 @@ export function FormFiller({
               <PasteValuesPanel
                 value={pasteText}
                 warning={pasteWarning}
-                disabled={orderedFields.length === 0}
+                disabled={dynamicFields.length === 0}
+                dynamicFieldCount={dynamicFields.length}
                 onChange={(value) => {
                   onPasteTextChange(value);
-                  onPasteWarningChange(getLineWarning(getLineCount(value), orderedFields.length));
+                  onPasteWarningChange(getLineWarning(getLineCount(value), dynamicFields.length));
                 }}
                 onApply={applyPastedLines}
                 onClear={clearValues}
               />
               <div className="form-grid">
-                {orderedFields.map((field) => (
+                {dynamicFields.map((field) => (
                   <label key={`${field.page}-${field.key}`}>
                     {field.label}
                     <input
@@ -252,12 +260,23 @@ export function FormFiller({
                 <button type="submit" disabled={!canGenerate}>
                   {isGenerating ? 'Generating' : 'Print Completed Form'}
                 </button>
+                <p className="field-hint">Downloads the completed PDF.</p>
               </div>
             </form>
           )}
         </div>
 
         <div className="pdf-pane filler-preview">
+          <div className="preview-options">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={showStaticFields}
+                onChange={(event) => setShowStaticFields(event.currentTarget.checked)}
+              />
+              Show Static Fields
+            </label>
+          </div>
           <PageControls
             pageNumber={pageNumber}
             pageCount={pdfDocument?.numPages ?? 0}
@@ -275,12 +294,21 @@ export function FormFiller({
                 onPageSize={setPageSize}
               />
               <FieldOverlay
-                fields={fieldsForPage}
+                fields={dynamicFieldsForPage}
                 activeKey={null}
                 fieldValues={values}
                 locked
                 scale={PREVIEW_SCALE}
               />
+              {showStaticFields && (
+                <FieldOverlay
+                  fields={staticFieldsForPage}
+                  activeKey={null}
+                  locked
+                  textOnly
+                  scale={PREVIEW_SCALE}
+                />
+              )}
             </div>
           ) : (
             <div className="drop-placeholder">Upload a PDF to preview the completed form.</div>
